@@ -109,6 +109,13 @@ func (*OnlineGameFinder) FindOnlineGameByGameID(gameId int64) (*OnlineGame, erro
 	return &game, nil
 }
 
+type User struct {
+	Id       int64  `json:"id"`
+	Email    string `json:"email"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
 type Host struct {
 	Id        int64  `db:"id" json:"id"`
 	IpAddress string `db:"ipAddress" json:"ipAddress"`
@@ -198,21 +205,51 @@ func GetNewGame(ctx echo.Context /* player1 Player, player2 Player */) error {
 		return err
 	}
 	if !lobby.InProgress {
-		ctx.String(http.StatusBadRequest, "lobby not started")
+		ctx.String(http.StatusBadRequest, "lobby not started") // not a bad request - find better http code.
 	}
 	game := OnlineGame{
 		Lobby: lobby,
 		Game:  chess.NewGame(),
 	}
+	fmt.Println("player joining lobby")
 	return ctx.JSON(http.StatusOK, game)
 
+}
+
+func Register(ctx echo.Context) error {
+	var user User
+	err := ctx.Bind(&user)
+	if err != nil {
+		return ctx.JSON(http.StatusBadRequest, err)
+	}
+	// register
+
+	// login
+
+	return ctx.JSON(http.StatusOK, user)
+}
+
+func Login(ctx echo.Context) error {
+	var user User
+	err := ctx.Bind(&user)
+	if err != nil {
+		return ctx.JSON(http.StatusBadRequest, err)
+	}
+	// login
+
+	return ctx.JSON(http.StatusOK, user)
 }
 
 func hookupRoutes(e *echo.Echo) {
 	addPlayerToLobbyAndStartIfFull := echo.HandlerFunc(GetNewGame)
 	helloWorld := echo.HandlerFunc(HelloWorld)
-	e.GET("/game/new/", addPlayerToLobbyAndStartIfFull)
+	login := echo.HandlerFunc(Login)
+	register := echo.HandlerFunc(Register)
+	e.GET("/game/new", addPlayerToLobbyAndStartIfFull)
 	e.GET("/hello", helloWorld)
+
+	e.POST("/user/login", login)
+	e.POST("/user/register", register)
 
 }
 
@@ -220,7 +257,7 @@ func hookupRoutes(e *echo.Echo) {
 
 // }
 
-func newMain() {
+func ServerMain() {
 	//startServer()
 	e := echo.New()
 	hookupRoutes(e)
@@ -241,7 +278,7 @@ func newMain() {
 }
 
 func main() {
-	newMain()
+	ServerMain()
 	game := chess.NewGame()
 	// generate moves until game is over, demostrate a no outcome game, randomly.
 	for game.Outcome() == chess.NoOutcome {
