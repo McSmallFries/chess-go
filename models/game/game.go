@@ -6,7 +6,11 @@ import (
 	"github.com/notnil/chess"
 )
 
-var Singleton = &GrandMasterSingleton{}
+var singleton = &GrandMasterSingleton{}
+
+func GetSingleton() *GrandMasterSingleton {
+	return singleton
+}
 
 type GrandMasterSingleton struct {
 	LobbyWarehouse *LobbyWarehouse
@@ -69,7 +73,7 @@ type OnlineGameFinder struct {
 }
 
 func (*OnlineGameFinder) FindOnlineGameByLobbyID(lobbyId int64) (*OnlineGame, error) {
-	var allGames []OnlineGame = *Singleton.GetAllGames()
+	var allGames []OnlineGame = *GetSingleton().GetAllGames()
 	var game OnlineGame
 	found := false
 	for _, v := range allGames {
@@ -87,7 +91,7 @@ func (*OnlineGameFinder) FindOnlineGameByLobbyID(lobbyId int64) (*OnlineGame, er
 }
 
 func (*OnlineGameFinder) FindOnlineGameByGameID(gameId int64) (*OnlineGame, error) {
-	var allGames []OnlineGame = *Singleton.GetAllGames()
+	var allGames []OnlineGame = *GetSingleton().GetAllGames()
 	var game OnlineGame
 	found := false
 	for _, v := range allGames {
@@ -138,7 +142,7 @@ func (warehouse *LobbyWarehouse) FindAndJoinLobby(player Player) (*Lobby, error)
 			l.IsCompletelyFucked = true
 			return l, err
 		}
-		Singleton.AddLobby(*l)
+		GetSingleton().AddLobby(*l)
 		return l, nil
 	}
 	return &Lobby{IsCompletelyFucked: true}, nil

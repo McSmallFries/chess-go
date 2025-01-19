@@ -1,8 +1,8 @@
 package main
 
 import (
-	gmodels "chess-go/models/game"
-	routes "chess-go/routes"
+	"chess-go/database"
+	"chess-go/routes"
 	"fmt"
 	"math/rand"
 	"net/http"
@@ -13,10 +13,8 @@ import (
 )
 
 func ServerMain() {
-	//startServer()
 	e := echo.New()
 	routes.HookupRoutes(e)
-	// Middleware
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
@@ -24,16 +22,17 @@ func ServerMain() {
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept},
 	}))
 	e.GET("/", func(c echo.Context) error {
-		return c.String(http.StatusOK, "Hello, World!1111")
+		return c.String(http.StatusOK, "Chess !")
 	})
-	gmodels.Singleton.MakeLobbyWarehouse()
-	gmodels.Singleton.MakeAllGames()
+	params := database.ConnectionParams{}
+	params.ConnectionString = `root:@(localhost:3306)/chess-db`
+	routes.Initialize()
+	database.Initialize(params)
 
 	e.Logger.Fatal(e.Start(":1323"))
 }
 
-func main() {
-	ServerMain()
+func GameMain() {
 	game := chess.NewGame()
 	// generate moves until game is over, demostrate a no outcome game, randomly.
 	for game.Outcome() == chess.NoOutcome {
@@ -63,4 +62,9 @@ func main() {
 
 		1.Nc3 b6 2.a4 e6 3.d4 Bb7 ...
 	*/
+}
+
+func main() {
+	ServerMain()
+	GameMain()
 }
