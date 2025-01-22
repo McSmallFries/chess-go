@@ -1,8 +1,8 @@
 package routes
 
 import (
-	gmodels "chess-go/models/game"
-	wmodels "chess-go/models/web"
+	"chess-go/database"
+	"chess-go/models"
 	"fmt"
 	"net/http"
 
@@ -10,9 +10,13 @@ import (
 	"github.com/notnil/chess"
 )
 
-func Initialize() {
-	gmodels.GetSingleton().MakeLobbyWarehouse()
-	gmodels.GetSingleton().MakeAllGames()
+func Initialize(e *echo.Echo) {
+	initializeRoutes(e)
+	models.GetSingleton().MakeLobbyWarehouse()
+	models.GetSingleton().MakeAllGames()
+	params := models.GetConnectionParams()
+	params.ConnectionString = `root:@(localhost:3306)/chess-db`
+	database.Initialize(params)
 }
 
 func HelloWorld(ctx echo.Context) error {
@@ -21,12 +25,12 @@ func HelloWorld(ctx echo.Context) error {
 }
 
 func GetNewGame(ctx echo.Context /* player1 Player, player2 Player */) error {
-	var player gmodels.Player
+	var player models.Player = *new(models.Player)
 	err := ctx.Bind(&player)
 	if err != nil {
 		return ctx.String(http.StatusBadRequest, "bad request")
 	}
-	warehouse := gmodels.GetSingleton().GetLobbyWarehouse()
+	warehouse := models.GetSingleton().GetLobbyWarehouse()
 	lobby, err := warehouse.FindAndJoinLobby(player)
 	if err != nil {
 		return err
@@ -34,30 +38,32 @@ func GetNewGame(ctx echo.Context /* player1 Player, player2 Player */) error {
 	if !lobby.InProgress {
 		ctx.String(http.StatusBadRequest, "lobby not started") // not a bad request - find better http code.
 	}
-	game := gmodels.OnlineGame{
+	game := models.OnlineGame{
 		Lobby: lobby,
 		Game:  chess.NewGame(),
 	}
 	fmt.Println("player joining lobby")
 	return ctx.JSON(http.StatusOK, game)
-
 }
 
 func Register(ctx echo.Context) error {
-	var user wmodels.User
-	err := ctx.Bind(&user)
+	request := new(models.LoginRequest)
+	err := ctx.Bind(request)
 	if err != nil {
 		return ctx.JSON(http.StatusBadRequest, err)
 	}
 	// register
-
-	// login
-
-	return ctx.JSON(http.StatusOK, user)
+	db := database.GetConnection().GetDB()
+	if result, err := request.Register(db); err != nil {
+		return ctx.JSON(http.StatusInternalServerError, err)
+	} else if !result {
+		return ctx.JSON(http.StatusBadGateway, "user id not zero")
+	}
+	return ctx.JSON(http.StatusOK, request)
 }
 
 func Login(ctx echo.Context) error {
-	var user wmodels.User
+	user := *new(models.User)
 	err := ctx.Bind(&user)
 	if err != nil {
 		return ctx.JSON(http.StatusBadRequest, err)
@@ -67,7 +73,7 @@ func Login(ctx echo.Context) error {
 	return ctx.JSON(http.StatusOK, user)
 }
 
-func HookupRoutes(e *echo.Echo) {
+func initializeRoutes(e *echo.Echo) {
 	addPlayerToLobbyAndStartIfFull := echo.HandlerFunc(GetNewGame)
 	helloWorld := echo.HandlerFunc(HelloWorld)
 	login := echo.HandlerFunc(Login)

@@ -1,6 +1,7 @@
 package database
 
 import (
+	"fmt"
 	"log"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -18,6 +19,10 @@ type Connection struct {
 
 func (c *Connection) SetDB(db *sqlx.DB) {
 	c.db = db
+}
+
+func (c *Connection) GetDB() *sqlx.DB {
+	return c.db
 }
 
 func (c *Connection) SetConnectionParams(params ConnectionParams) {
@@ -46,5 +51,6 @@ func (c *Connection) Connect() {
 	if err != nil {
 		log.Fatalln(err)
 	}
+	fmt.Println("Connected to DB")
 	GetConnection().SetDB(db)
 }

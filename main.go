@@ -1,7 +1,6 @@
 package main
 
 import (
-	"chess-go/database"
 	"chess-go/routes"
 	"fmt"
 	"math/rand"
@@ -14,21 +13,16 @@ import (
 
 func ServerMain() {
 	e := echo.New()
-	routes.HookupRoutes(e)
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"http://localhost:4200"},
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept},
 	}))
+	routes.Initialize(e)
 	e.GET("/", func(c echo.Context) error {
 		return c.String(http.StatusOK, "Chess !")
 	})
-	params := database.ConnectionParams{}
-	params.ConnectionString = `root:@(localhost:3306)/chess-db`
-	routes.Initialize()
-	database.Initialize(params)
-
 	e.Logger.Fatal(e.Start(":1323"))
 }
 
