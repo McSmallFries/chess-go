@@ -13,6 +13,8 @@ type User struct {
 	Username string `json:"username" db:"Username"`
 }
 
+// TODO - Use db.Begin() to start a Tx and use Commit() / Rollback()
+// for database control here.
 func (user *User) Insert(db *sqlx.DB) error {
 	userResult := db.MustExec(`INSERT INTO Users (Email) VALUES (?)`, user.Email)
 	id, err := userResult.LastInsertId()
@@ -24,6 +26,8 @@ func (user *User) Insert(db *sqlx.DB) error {
 	return nil
 }
 
+// TODO - Use db.Begin() to start a Tx and use Commit() / Rollback()
+// for database control here.
 func (user *User) FindDBUser(db *sqlx.DB) (dbUser User, err error) {
 	username := user.Username
 	email := user.Email
@@ -57,6 +61,8 @@ type UserPassword struct {
 	Password string `json:"password" db:"Password"`
 }
 
+// TODO - Use db.Begin() to start a Tx and use Commit() / Rollback()
+// for database control here.
 func (password *UserPassword) FindDBUserPassword(db *sqlx.DB) (dbPassword string, err error) {
 	id := password.IdUser
 	row := db.QueryRow(`SELECT Password FROM UserPasswords WHERE idUser = ?`, id)
@@ -66,6 +72,8 @@ func (password *UserPassword) FindDBUserPassword(db *sqlx.DB) (dbPassword string
 	return dbPassword, nil
 }
 
+// TODO - Use db.Begin() to start a Tx and use Commit() / Rollback()
+// for database control here.
 func (pw *UserPassword) Insert(db *sqlx.DB) error {
 	result := db.MustExec(`INSERT INTO UserPasswords (idUser, Password) VALUES (?, ?)`, pw.IdUser, pw.Password)
 	_, err := result.LastInsertId()
@@ -84,6 +92,8 @@ func NewLoginRequest() LoginRequest {
 	return LoginRequest{User: User{}, Password: UserPassword{}}
 }
 
+// TODO - Use db.Begin() to start a Tx and use Commit() / Rollback()
+// for database control here.
 func (request *LoginRequest) Register(db *sqlx.DB) (bool, error) {
 	if request.User.Id > 0 {
 		return false, nil
@@ -101,6 +111,8 @@ func (request *LoginRequest) Register(db *sqlx.DB) (bool, error) {
 	return true, nil
 }
 
+// TODO - Use db.Begin() to start a Tx and use Commit() / Rollback()
+// for database control here.
 func (request *LoginRequest) Login(db *sqlx.DB) (bool, error) {
 	if request.User.Id <= 0 {
 		return false, nil
