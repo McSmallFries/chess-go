@@ -11,19 +11,28 @@ import (
 	"github.com/notnil/chess"
 )
 
+var port_http = ":8081"
+var port_ws = ":8080"
+var port_client = ":4200"
+var domain = "http://localhost"
+var version = "v0.0"
+var title = "Chess !"
+
 func ServerMain() {
+	fmt.Println(title + " -- " + version)
+	fmt.Println("wss " + " -- " + port_ws)
 	e := echo.New()
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins: []string{"http://localhost:4200"},
+		AllowOrigins: []string{domain + port_client},
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept},
 	}))
 	routes.Initialize(e)
 	e.GET("/", func(c echo.Context) error {
-		return c.String(http.StatusOK, "Chess !")
+		return c.String(http.StatusOK, title)
 	})
-	e.Logger.Fatal(e.Start(":1323"))
+	e.Logger.Fatal(e.Start(port_http))
 }
 
 func GameMain() {

@@ -57,6 +57,7 @@ func Register(ctx echo.Context) error {
 	if result, err := request.Register(db); err != nil {
 		return ctx.JSON(http.StatusInternalServerError, err)
 	} else if !result {
+		fmt.Println("Unable to register. Bad gateway.")
 		return ctx.JSON(http.StatusBadGateway, "user id not zero")
 	}
 	return ctx.JSON(http.StatusOK, request.User)
@@ -68,12 +69,20 @@ func Login(ctx echo.Context) error {
 	if err != nil {
 		return ctx.JSON(http.StatusBadRequest, err)
 	}
-	// login
 	db := database.GetConnection().GetDB()
+
+	if dbUser, err := request.User.FindDBUser(db); err != nil {
+		return ctx.JSON(http.StatusBadGateway, "cannot find user by this email/username in database.")
+	} else {
+		request.User.Id = dbUser.Id
+		request.Password.IdUser = dbUser.Id
+	}
+
 	if result, err := request.Login(db); err != nil {
 		return ctx.JSON(http.StatusInternalServerError, err)
 	} else if !result {
-		return ctx.JSON(http.StatusBadGateway, "user id not zero")
+		fmt.Println("Unable to login. Bad gateway.")
+		return ctx.JSON(http.StatusBadGateway, "user id cannot be zero")
 	}
 	return ctx.JSON(http.StatusOK, request.User)
 }

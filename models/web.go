@@ -34,21 +34,17 @@ func (user *User) FindDBUser(db *sqlx.DB) (dbUser User, err error) {
 	var dbID int32
 	var dbUsername string
 	var dbEmail string
-	row := db.QueryRow(`SELECT u.idUser, usn.Username, e.Email FROM Users u JOIN Usernames usn ON 
+	row := db.QueryRow(`SELECT u.idUser as idUser, usn.Username as Username, u.Email as Email FROM Users u JOIN Usernames usn ON 
 	  u.idUser = usn.idUser WHERE u.Email = ? OR usn.Username = ?`,
 		email, username)
-	if err = row.Scan(&dbID); err != nil {
+	if err = row.Scan(&dbID, &dbUsername, &dbEmail); err != nil {
 		return dbUser, err
+	} else {
+		dbUser.Id = dbID
+		dbUser.Email = dbEmail
+		dbUser.Username = dbUsername
 	}
-	if err = row.Scan(&dbUsername); err != nil {
-		return dbUser, err
-	}
-	if err = row.Scan(&dbEmail); err != nil {
-		return dbUser, err
-	}
-	dbUser.Id = dbID
-	dbUser.Email = dbEmail
-	dbUser.Username = dbUsername
+
 	return dbUser, nil
 }
 
@@ -134,7 +130,7 @@ func (request *LoginRequest) Login(db *sqlx.DB) (bool, error) {
 
 // Helpers (Private)
 func compareUserCreds(c1 User, c2 User) bool {
-	return c1.Email == c2.Email && c1.Username == c2.Username
+	return c1.Email == c2.Email || c1.Username == c2.Username
 }
 
 func compareUserPassword(p1 string, p2 string) bool {

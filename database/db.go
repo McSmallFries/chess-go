@@ -47,10 +47,11 @@ func GetConnection() *Connection {
 }
 
 func (c *Connection) Connect() {
+	fmt.Println("Connecting to DB: " + c.params.ConnectionString)
 	db, err := sqlx.Connect("mysql", c.params.ConnectionString)
 	if err != nil {
 		log.Fatalln(err)
 	}
-	fmt.Println("Connected to DB")
+	fmt.Println("Connected to DB.")
 	GetConnection().SetDB(db)
 }
