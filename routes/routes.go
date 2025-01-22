@@ -59,18 +59,23 @@ func Register(ctx echo.Context) error {
 	} else if !result {
 		return ctx.JSON(http.StatusBadGateway, "user id not zero")
 	}
-	return ctx.JSON(http.StatusOK, request)
+	return ctx.JSON(http.StatusOK, request.User)
 }
 
 func Login(ctx echo.Context) error {
-	user := *new(models.User)
-	err := ctx.Bind(&user)
+	request := *new(models.LoginRequest)
+	err := ctx.Bind(&request)
 	if err != nil {
 		return ctx.JSON(http.StatusBadRequest, err)
 	}
 	// login
-
-	return ctx.JSON(http.StatusOK, user)
+	db := database.GetConnection().GetDB()
+	if result, err := request.Login(db); err != nil {
+		return ctx.JSON(http.StatusInternalServerError, err)
+	} else if !result {
+		return ctx.JSON(http.StatusBadGateway, "user id not zero")
+	}
+	return ctx.JSON(http.StatusOK, request.User)
 }
 
 func initializeRoutes(e *echo.Echo) {
