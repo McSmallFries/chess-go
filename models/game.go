@@ -2,7 +2,9 @@ package models
 
 import (
 	"errors"
+	"fmt"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/notnil/chess"
 )
 
@@ -113,8 +115,46 @@ type Host struct {
 	IpAddress string `db:"ipAddress" json:"ipAddress"`
 }
 
+func (host *Host) GetHostByID(id int64, db *sqlx.DB) (err error) {
+	query := `SELECT * FROM Hosts WHERE HostID = ?`
+	if err = db.Select(host, query, id); err != nil {
+		return err
+	}
+	if !(host.Id > 0) {
+		return errors.New("something went wrong obtaining host")
+	}
+	return nil
+}
+
 type LobbyWarehouse struct {
 	Lobbies []Lobby `db:"lobbies" json:"lobbies"` // -> select idLobby from lobbies as 'lobbies'
+}
+
+func (warehouse *LobbyWarehouse) FixLobbyWarehouse(err error) {
+	fmt.Println(err)
+	// iterate over lobbys and check common failure points
+	// ids, isCompletelyFucked
+	// fix or just put player(s) in a new lobby, clear up the broken one and carry on
+}
+
+func (warehouse *LobbyWarehouse) UpdateLobbyWarehouse(db *sqlx.DB) (err error) {
+	var lobbies []Lobby
+	var lobbyIds []int64
+	var rows *sqlx.Rows
+	query := `SELECT LobbyID, Lobbies.* from Lobbies WHERE IsComplete`
+	if rows, err = db.Queryx(query); err != nil {
+		return err
+	}
+	if err = rows.Scan(&lobbies, &lobbyIds); err != nil {
+		return err
+	}
+	warehouse.Lobbies = lobbies
+	for _, lobby := range lobbies {
+		if err = lobby.Host.GetHostByID(lobby.HostID, db); err != nil {
+			warehouse.FixLobbyWarehouse(err)
+		}
+	}
+	return nil
 }
 
 func (warehouse *LobbyWarehouse) FindAndJoinLobby(player Player) (*Lobby, error) {
@@ -149,12 +189,13 @@ func (warehouse *LobbyWarehouse) FindAndJoinLobby(player Player) (*Lobby, error)
 }
 
 type Lobby struct {
-	LobbyID            int64  `db:"lobbyId" json:"lobbyId"`
-	Host               Host   `db:"host" json:"host"`
-	IsFull             bool   `db:"isFull" json:"isFull"`
-	InProgress         bool   `db:"inProgress" json:"inProgress"` // periodically update and confirm health of lobby.
-	Player1            Player `db:"player1" json:"player1"`
-	Player2            Player `db:"player2" json:"player2"`
+	LobbyID            int64  `db:"LobbyID" json:"lobbyId"`
+	HostID             int64  `db:"HostID"`
+	Host               Host   `json:"host"`
+	IsFull             bool   `db:"IsFull" json:"isFull"`
+	InProgress         bool   `json:"inProgress"` // periodically update and confirm health of lobby.
+	Player1            Player `db:"IDPlayer1" json:"player1"`
+	Player2            Player `db:"IDPlayer2" json:"player2"`
 	IsCompletelyFucked bool
 }
 

@@ -33,6 +33,8 @@ func ServerMain() {
 		return c.String(http.StatusOK, title)
 	})
 	e.Logger.Fatal(e.Start(port_http))
+
+	
 }
 
 func GameMain() {

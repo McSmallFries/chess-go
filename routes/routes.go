@@ -8,6 +8,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/notnil/chess"
+	"github.com/robfig/cron/v3"
 )
 
 func Initialize(e *echo.Echo) {
@@ -17,6 +18,11 @@ func Initialize(e *echo.Echo) {
 	params := models.GetConnectionParams()
 	params.ConnectionString = `root:@(localhost:3306)/chess-db`
 	database.Initialize(params)
+	c := cron.New()
+	c.AddFunc("@every 5s", func() {
+		models.GetSingleton().GetLobbyWarehouse().UpdateLobbyWarehouse(
+			database.GetConnection().GetDB())
+	})
 }
 
 func HelloWorld(ctx echo.Context) error {
