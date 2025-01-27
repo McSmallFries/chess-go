@@ -6,6 +6,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/notnil/chess"
+	"golang.org/x/net/websocket"
 )
 
 var singleton = &GrandMasterSingleton{}
@@ -17,6 +18,15 @@ func GetSingleton() *GrandMasterSingleton {
 type GrandMasterSingleton struct {
 	LobbyWarehouse *LobbyWarehouse
 	AllGames       *[]OnlineGame
+	GameSockets    *[]ChessGameSocket
+}
+
+func (gm *GrandMasterSingleton) NewSocket() {
+	// set up a new socket connection and add to the singleton
+	// will have to use WaitGroup so that the server doesnt get stuck in
+	// fucking for loops man.
+
+	// there will be a nice video on that somewhere
 }
 
 func (gm *GrandMasterSingleton) MakeLobbyWarehouse() *LobbyWarehouse {
@@ -45,8 +55,8 @@ func (gm *GrandMasterSingleton) AddLobby(lobby Lobby) {
 }
 
 type Player struct {
-	Name string `db:"name" json:"name"`
-	Id   int64  `db:"id" json:"id"`
+	PlayerID int64 `json:"playerID" db:"PlayerID"`
+	UserID   int32 `json:"idUser" db:"idUser"`
 }
 
 func (player *Player) PromoteToHost(ipAddr string) (*Host, error) {
@@ -63,10 +73,16 @@ func (player *Player) PromoteToHost(ipAddr string) (*Host, error) {
 	// return &Host{}, nil
 }
 
+type ChessGameSocket struct {
+	Id int64 `json:"socketId" db:"SocketID"`
+	Ws *websocket.Conn
+}
+
 type OnlineGame struct {
-	GameID int64       `db:"gameId" json:"gameId"`
-	Game   *chess.Game `db:"game" json:"game"`
-	Lobby  *Lobby      `db:"lobby" json:"lobby"`
+	GameID   int64       `db:"gameId" json:"gameId"`
+	Game     *chess.Game `db:"game" json:"game"`
+	SocketID *int64      `db:"SocketID" json:"socketId"`
+	Lobby    *Lobby      `db:"lobby" json:"lobby"`
 }
 
 type OnlineGameFinder struct {

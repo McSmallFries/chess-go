@@ -30,7 +30,7 @@ func HelloWorld(ctx echo.Context) error {
 	return nil
 }
 
-func GetNewGame(ctx echo.Context /* player1 Player, player2 Player */) error {
+func GetNewGame(ctx echo.Context) error {
 	var player models.Player = *new(models.Player)
 	err := ctx.Bind(&player)
 	if err != nil {
@@ -93,12 +93,26 @@ func Login(ctx echo.Context) error {
 	return ctx.JSON(http.StatusOK, request.User)
 }
 
+func wsHandler(ctx echo.Context) (err error) {
+	var id int64
+	if err = ctx.Bind(&id); err != nil {
+		fmt.Println(err)
+	}
+	rw := ctx.Response().Writer
+	req := ctx.Request()
+	if err = models.WsHandler(rw, req, id); err != nil {
+		fmt.Println(err)
+	}
+	return nil
+}
+
 func initializeRoutes(e *echo.Echo) {
 	addPlayerToLobbyAndStartIfFull := echo.HandlerFunc(GetNewGame)
 	helloWorld := echo.HandlerFunc(HelloWorld)
 	login := echo.HandlerFunc(Login)
 	register := echo.HandlerFunc(Register)
-	e.GET("/game/new", addPlayerToLobbyAndStartIfFull)
+	e.GET("ws/game/:id", wsHandler)
+	e.GET("/game/new/:idUser", addPlayerToLobbyAndStartIfFull)
 	e.GET("/hello", helloWorld)
 
 	e.POST("/user/login", login)
