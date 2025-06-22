@@ -8,6 +8,11 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+type ChessGameSocket struct {
+	Id int64 `json:"socketId" db:"SocketID"`
+	Ws *websocket.Conn
+}
+
 // vars
 
 var upgrader = websocket.Upgrader{
@@ -16,7 +21,7 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-var clients = make(map[int64]*websocket.Conn) // Connected clients
+var clients = make(map[int64]ChessGameSocket) // Connected clients
 var broadcast = make(chan []byte)             // Broadcast channel
 var mutex = &sync.Mutex{}
 var wg = &sync.WaitGroup{}
@@ -25,7 +30,7 @@ func GetWaitGroup() *sync.WaitGroup {
 	return wg
 }
 
-func WsHandler(w http.ResponseWriter, r *http.Request, id int64) error {
+func WsHandler(w http.ResponseWriter, r *http.Request, GameId int64) error {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		fmt.Println("Error upgrading:", err)
@@ -33,15 +38,20 @@ func WsHandler(w http.ResponseWriter, r *http.Request, id int64) error {
 	}
 	defer conn.Close()
 
+	newGame := ChessGameSocket{
+		Id: GameId,
+		Ws: conn,
+	}
 	mutex.Lock()
-	clients[id] = conn
+
+	clients[GameId] = newGame
 	mutex.Unlock()
 
 	for {
 		_, message, err := conn.ReadMessage()
 		if err != nil {
 			mutex.Lock()
-			delete(clients, id)
+			delete(clients, GameId)
 			mutex.Unlock()
 			break
 		}
@@ -58,11 +68,12 @@ func HandleWsMessages() {
 		message := <-broadcast
 
 		// scan into struct, edit the global table of games
+		// messageJson := string(message)
 
 		// dont do this -->: Send the message to all connected clients
 		mutex.Lock()
 		for i := range clients {
-			conn := clients[i]
+			conn := clients[i].Ws
 			err := conn.WriteMessage(websocket.TextMessage, message)
 			if err != nil {
 				conn.Close()

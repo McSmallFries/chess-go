@@ -2,13 +2,13 @@ package models
 
 import (
 	"chess-go/database"
-	"errors"
+	"chess-go/utils"
 
 	"github.com/jmoiron/sqlx"
 )
 
 type User struct {
-	Id       int32  `json:"idUser" db:"idUser"`
+	Id       int32  `json:"idUser" db:"IDUser"`
 	Email    string `json:"email" db:"Email"`
 	Username string `json:"username" db:"Username"`
 }
@@ -22,7 +22,7 @@ func (user *User) Insert(db *sqlx.DB) error {
 		return err
 	}
 	user.Id = int32(id)
-	_ = db.MustExec(`INSERT INTO Usernames (idUser, Username) VALUES (?,?)`, user.Id, user.Username)
+	_ = db.MustExec(`INSERT INTO Usernames (IDUser, Username) VALUES (?,?)`, user.Id, user.Username)
 	return nil
 }
 
@@ -34,8 +34,8 @@ func (user *User) FindDBUser(db *sqlx.DB) (dbUser User, err error) {
 	var dbID int32
 	var dbUsername string
 	var dbEmail string
-	row := db.QueryRow(`SELECT u.idUser as idUser, usn.Username as Username, u.Email as Email FROM Users u JOIN Usernames usn ON 
-	  u.idUser = usn.idUser WHERE u.Email = ? OR usn.Username = ?`,
+	row := db.QueryRow(`SELECT u.IDUser as IDUser, usn.Username as Username, u.Email as Email FROM Users u JOIN Usernames usn ON 
+	  u.IDUser = usn.IDUser WHERE u.Email = ? OR usn.Username = ?`,
 		email, username)
 	if err = row.Scan(&dbID, &dbUsername, &dbEmail); err != nil {
 		return dbUser, err
@@ -53,26 +53,33 @@ func (user *User) FindDBUser(db *sqlx.DB) (dbUser User, err error) {
 // }
 
 type UserPassword struct {
-	IdUser   int32  `json:"idUser" db:"idUser"`
+	IdUser   int32  `json:"idUser" db:"IDUser"`
 	Password string `json:"password" db:"Password"`
 }
 
 // TODO - Use db.Begin() to start a Tx and use Commit() / Rollback()
 // for database control here.
-func (password *UserPassword) FindDBUserPassword(db *sqlx.DB) (dbPassword string, err error) {
+func (password *UserPassword) ValidateDBUserPassword(db *sqlx.DB) (match bool, err error) {
+	var dbPassword string
 	id := password.IdUser
-	row := db.QueryRow(`SELECT Password FROM UserPasswords WHERE idUser = ?`, id)
+	pwToVerify := password.Password
+	row := db.QueryRow(`SELECT Password FROM UserPasswords WHERE IDUser = ?`, id)
 	if err = row.Scan(&dbPassword); err != nil {
-		return dbPassword, err
+		return false, err
 	}
-	return dbPassword, nil
+	match = utils.VerifyPassword(pwToVerify, dbPassword)
+	return match, nil
 }
 
 // TODO - Use db.Begin() to start a Tx and use Commit() / Rollback()
 // for database control here.
 func (pw *UserPassword) Insert(db *sqlx.DB) error {
-	result := db.MustExec(`INSERT INTO UserPasswords (idUser, Password) VALUES (?, ?)`, pw.IdUser, pw.Password)
-	_, err := result.LastInsertId()
+	hash, err := utils.HashPassword(pw.Password)
+	if err != nil {
+		return err
+	}
+	result := db.MustExec(`INSERT INTO UserPasswords (IDUser, Password) VALUES (?, ?)`, pw.IdUser, hash)
+	_, err = result.LastInsertId()
 	if err != nil {
 		return err
 	}
@@ -113,29 +120,25 @@ func (request *LoginRequest) Login(db *sqlx.DB) (bool, error) {
 	if request.User.Id <= 0 {
 		return false, nil
 	}
-	if dbUser, err := request.User.FindDBUser(db); err != nil {
+	if _, err := request.User.FindDBUser(db); err != nil {
 		return false, err
-	} else if !compareUserCreds(dbUser, request.User) {
-		return false, errors.New("user credentials mismatch")
 	}
 
-	if dbPassword, err := request.Password.FindDBUserPassword(db); err != nil {
+	if dbPassword, err := request.Password.ValidateDBUserPassword(db); err != nil {
 		return false, err
-	} else if !compareUserPassword(dbPassword, request.Password.Password) {
-		return false, nil
+	} else {
+		return dbPassword, nil
 	}
-
-	return true, nil
 }
 
 // Helpers (Private)
-func compareUserCreds(c1 User, c2 User) bool {
-	return c1.Email == c2.Email || c1.Username == c2.Username
-}
+// func compareUserCreds(c1 User, c2 User) bool {
+// 	return c1.Email == c2.Email || c1.Username == c2.Username
+// }
 
-func compareUserPassword(p1 string, p2 string) bool {
-	return p1 == p2
-}
+// func compareUserPassword(p1 string, p2 string) bool {
+// 	return p1 == p2
+// }
 
 // Delagates
 

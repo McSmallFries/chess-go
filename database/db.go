@@ -39,7 +39,6 @@ func Initialize(params ConnectionParams) {
 	conn := GetConnection()
 	conn.SetConnectionParams(params)
 	conn.Connect()
-
 }
 
 func GetConnection() *Connection {
