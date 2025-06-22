@@ -33,8 +33,6 @@ func ServerMain() {
 		return c.String(http.StatusOK, title)
 	})
 	e.Logger.Fatal(e.Start(port_http))
-
-	
 }
 
 func GameMain() {
@@ -52,9 +50,71 @@ func GameMain() {
 	fmt.Println(game.String())
 }
 
+// You can edit this code!
+// Click here and start typing.
+package main
+
+import (
+	"fmt"
+	"strconv"
+)
+
+type ListNode struct {
+	Val  int
+	Next *ListNode
+}
+
+func addTwoNumbers(l1 *ListNode, l2 *ListNode) *ListNode {
+	var L1AsString = string(l1.Val)
+	var L2AsString = string(l2.Val)
+	for {
+		if l1.Next == nil && l2.Next == nil {
+			break
+		}
+		if l1.Next != nil {
+			var curr = *l1
+			L1AsString += string(curr.Val)
+			l1 = curr.Next
+		}
+		if l2.Next != nil {
+			var curr = *l2
+			L2AsString += string(curr.Val)
+			l2 = curr.Next
+		}
+	}
+	L1StrReversed := ""
+	L2StrReversed := ""
+	SumAsString := ""
+	for i := len(L1AsString) - 1; i > 0; i -= 1 {
+		L1StrReversed += L1AsString[i]
+	}
+	for i := len(L2AsString) - 1; i > 0; i -= 1 {
+		L2StrReversed += L2AsString[i]
+	}
+	// 342 + 465 => 807
+	SumAsString = string(strconv.Atoi(L1StrReversed) + strconv.Atoi(L2StrReversed))
+	var listToReturn = *ListNode{}
+	var curr = *ListNode{}
+	var next = *ListNode{}
+	for i := len(SumAsString) - 1; i > 0; i -= 1 {
+		curr.Val = strconv.Atoi(SumAsString[i])
+		if i-1 > 0 {
+			next.Val = strconv.Atoi(SumAsString[i-1])
+			curr.Next = next
+			listToReturn.Next = curr
+		}
+	}
+	return listToReturn
+}
+
 func main() {
-	ServerMain()
-	GameMain()
+	fmt.Println("Hello, 世界")
+}
+
+
+func main() {
+	// ServerMain()
+	// GameMain()
 }
 
 /*

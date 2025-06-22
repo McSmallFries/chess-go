@@ -3,10 +3,10 @@ package models
 import (
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/notnil/chess"
-	"golang.org/x/net/websocket"
 )
 
 var singleton = &GrandMasterSingleton{}
@@ -16,9 +16,10 @@ func GetSingleton() *GrandMasterSingleton {
 }
 
 type GrandMasterSingleton struct {
+	mu             *sync.Mutex
 	LobbyWarehouse *LobbyWarehouse
-	AllGames       *[]OnlineGame
-	GameSockets    *[]ChessGameSocket
+	AllGames       []OnlineGame
+	GameSockets    *map[int64]ChessGameSocket
 }
 
 func (gm *GrandMasterSingleton) NewSocket() {
@@ -35,14 +36,18 @@ func (gm *GrandMasterSingleton) MakeLobbyWarehouse() *LobbyWarehouse {
 	return gm.GetLobbyWarehouse()
 }
 
-func (gm *GrandMasterSingleton) MakeAllGames() *[]OnlineGame {
+func (gm *GrandMasterSingleton) MakeAllGames() []OnlineGame {
 	games := make([]OnlineGame, 0)
-	gm.AllGames = &games
+	gm.AllGames = games
 	return gm.GetAllGames()
 }
 
-func (gm *GrandMasterSingleton) GetAllGames() *[]OnlineGame {
+func (gm *GrandMasterSingleton) GetAllGames() []OnlineGame {
 	return gm.AllGames
+}
+
+func (gm *GrandMasterSingleton) AddNewGame(game OnlineGame) {
+	gm.AllGames = append(gm.AllGames, game)
 }
 
 func (gm *GrandMasterSingleton) GetLobbyWarehouse() *LobbyWarehouse {
@@ -56,7 +61,16 @@ func (gm *GrandMasterSingleton) AddLobby(lobby Lobby) {
 
 type Player struct {
 	PlayerID int64 `json:"playerID" db:"PlayerID"`
-	UserID   int32 `json:"idUser" db:"idUser"`
+	UserID   int32 `json:"idUser" db:"IDUser"`
+}
+
+func (player *Player) GetByIDUser(db *sqlx.DB) error {
+	id := player.UserID
+	query := `SELECT * FROM Players WHERE IDUser = ?`
+	if err := db.Select(player, query, id); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (player *Player) PromoteToHost(ipAddr string) (*Host, error) {
@@ -73,16 +87,21 @@ func (player *Player) PromoteToHost(ipAddr string) (*Host, error) {
 	// return &Host{}, nil
 }
 
-type ChessGameSocket struct {
-	Id int64 `json:"socketId" db:"SocketID"`
-	Ws *websocket.Conn
+type OnlineGame struct {
+	GameID  int64       `db:"gameId" json:"gameId"`
+	LobbyID int64       `db:"LobbyID" json:"lobbyId"`
+	Game    *chess.Game `db:"game" json:"game"`
+	Lobby   *Lobby      `db:"lobby" json:"lobby"`
 }
 
-type OnlineGame struct {
-	GameID   int64       `db:"gameId" json:"gameId"`
-	Game     *chess.Game `db:"game" json:"game"`
-	SocketID *int64      `db:"SocketID" json:"socketId"`
-	Lobby    *Lobby      `db:"lobby" json:"lobby"`
+func (game *OnlineGame) Insert(db *sqlx.DB) (err error) {
+	oGameResult := db.MustExec(`INSERT INTO OnlineGames (LobbyID) VALUES (?)`, game.LobbyID)
+	game.GameID, err = oGameResult.LastInsertId()
+	game.Lobby.LobbyID = game.LobbyID
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 type OnlineGameFinder struct {
@@ -91,7 +110,7 @@ type OnlineGameFinder struct {
 }
 
 func (*OnlineGameFinder) FindOnlineGameByLobbyID(lobbyId int64) (*OnlineGame, error) {
-	var allGames []OnlineGame = *GetSingleton().GetAllGames()
+	var allGames []OnlineGame = GetSingleton().GetAllGames()
 	var game OnlineGame
 	found := false
 	for _, v := range allGames {
@@ -109,7 +128,7 @@ func (*OnlineGameFinder) FindOnlineGameByLobbyID(lobbyId int64) (*OnlineGame, er
 }
 
 func (*OnlineGameFinder) FindOnlineGameByGameID(gameId int64) (*OnlineGame, error) {
-	var allGames []OnlineGame = *GetSingleton().GetAllGames()
+	var allGames []OnlineGame = GetSingleton().GetAllGames()
 	var game OnlineGame
 	found := false
 	for _, v := range allGames {
@@ -131,7 +150,7 @@ type Host struct {
 	IpAddress string `db:"ipAddress" json:"ipAddress"`
 }
 
-func (host *Host) GetHostByID(id int64, db *sqlx.DB) (err error) {
+func (host *Host) GetHostByID(id int64, db *sqlx.Tx) (err error) {
 	query := `SELECT * FROM Hosts WHERE HostID = ?`
 	if err = db.Select(host, query, id); err != nil {
 		return err
@@ -153,7 +172,7 @@ func (warehouse *LobbyWarehouse) FixLobbyWarehouse(err error) {
 	// fix or just put player(s) in a new lobby, clear up the broken one and carry on
 }
 
-func (warehouse *LobbyWarehouse) UpdateLobbyWarehouse(db *sqlx.DB) (err error) {
+func (warehouse *LobbyWarehouse) UpdateLobbyWarehouse(db *sqlx.Tx) (err error) {
 	var lobbies []Lobby
 	var lobbyIds []int64
 	var rows *sqlx.Rows
@@ -234,5 +253,5 @@ func (lobby *Lobby) Start() {
 	//  if error, log, & put both players back in home and try again.
 	didSuccessfullyStart := true
 	lobby.InProgress = didSuccessfullyStart
-
+	// alert the client's websockets that the game has started
 }

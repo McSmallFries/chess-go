@@ -5,6 +5,7 @@ import (
 	"chess-go/models"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/labstack/echo/v4"
 	"github.com/notnil/chess"
@@ -21,7 +22,7 @@ func Initialize(e *echo.Echo) {
 	c := cron.New()
 	c.AddFunc("@every 5s", func() {
 		models.GetSingleton().GetLobbyWarehouse().UpdateLobbyWarehouse(
-			database.GetConnection().GetDB())
+			database.GetConnection().GetDB().MustBegin())
 	})
 }
 
@@ -30,24 +31,32 @@ func HelloWorld(ctx echo.Context) error {
 	return nil
 }
 
-func GetNewGame(ctx echo.Context) error {
-	var player models.Player = *new(models.Player)
-	err := ctx.Bind(&player)
+func GetNewGame(ctx echo.Context) (err error) {
+	var id int
+	i := ctx.QueryParam("idUser")
+	id, err = strconv.Atoi(i)
 	if err != nil {
-		return ctx.String(http.StatusBadRequest, "bad request")
+		return ctx.JSON(http.StatusBadRequest, err)
 	}
+	var player models.Player = *new(models.Player)
+	player.UserID = int32(id)
 	warehouse := models.GetSingleton().GetLobbyWarehouse()
 	lobby, err := warehouse.FindAndJoinLobby(player)
 	if err != nil {
-		return err
-	}
-	if !lobby.InProgress {
-		ctx.String(http.StatusBadRequest, "lobby not started") // not a bad request - find better http code.
+		return ctx.JSON(http.StatusBadRequest, err)
 	}
 	game := models.OnlineGame{
 		Lobby: lobby,
 		Game:  chess.NewGame(),
 	}
+	gameJson := models.OnlineGame{
+		LobbyID: lobby.LobbyID,
+		GameID:  game.GameID,
+	}
+	gameJson.Insert(database.GetConnection().GetDB())
+	game.GameID = gameJson.GameID
+	game.LobbyID = gameJson.LobbyID
+	models.GetSingleton().AddNewGame(game)
 	fmt.Println("player joining lobby")
 	return ctx.JSON(http.StatusOK, game)
 }
@@ -94,16 +103,18 @@ func Login(ctx echo.Context) error {
 }
 
 func wsHandler(ctx echo.Context) (err error) {
-	var id int64
-	if err = ctx.Bind(&id); err != nil {
-		fmt.Println(err)
+	var id int
+	i := ctx.QueryParam("gameId")
+	id, err = strconv.Atoi(i)
+	if err != nil {
+		return ctx.JSON(http.StatusBadRequest, err)
 	}
 	rw := ctx.Response().Writer
 	req := ctx.Request()
-	if err = models.WsHandler(rw, req, id); err != nil {
+	if err = models.WsHandler(rw, req, int64(id)); err != nil {
 		fmt.Println(err)
 	}
-	return nil
+	return ctx.JSON(http.StatusOK, id)
 }
 
 func initializeRoutes(e *echo.Echo) {
@@ -112,10 +123,15 @@ func initializeRoutes(e *echo.Echo) {
 	login := echo.HandlerFunc(Login)
 	register := echo.HandlerFunc(Register)
 	e.GET("ws/game/:id", wsHandler)
-	e.GET("/game/new/:idUser", addPlayerToLobbyAndStartIfFull)
+	e.GET("/game/new", addPlayerToLobbyAndStartIfFull)
 	e.GET("/hello", helloWorld)
 
 	e.POST("/user/login", login)
 	e.POST("/user/register", register)
 
 }
+
+// func GetPlayer(idUser int64) models.Player {
+// 	db := database.GetConnection().GetDB()
+
+// }
